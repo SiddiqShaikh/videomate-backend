@@ -8,10 +8,10 @@ const generateAccessTokenAndRefreshToken = async (userID) => {
   try {
     const user = await User.findById(userID);
     const accessToken = await user.generateAccessToken();
-    const refeshToken = await user.generateRefreshToken();
-    user.refeshToken = refeshToken;
+    const refreshToken = await user.generateRefreshToken();
+    user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
-    return { refeshToken, accessToken };
+    return {accessToken, refreshToken  };
   } catch (error) {
     throw new ApiError(500, "Something went wrong while generating token!!");
   }
@@ -91,9 +91,8 @@ const loginUser = asyncHandler(async (req, res) => {
   // accessToken and refresh token
   // send cookie res
   const { username, email, password } = req.body;
-  console.log("req.body", req.body);
 
-  if (!email) {
+  if (!email && !username) {
     throw new ApiError(400, "User name and email is required");
   }
 
@@ -110,14 +109,15 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!isPasswordValid) {
     throw new ApiError(401, "Invalid Credentials");
   }
-  const { accessToken, refreshToken } = generateAccessTokenAndRefreshToken(
+//   console.log("user ==>",user)
+  const { accessToken, refreshToken } = await generateAccessTokenAndRefreshToken(
     user._id
   );
   const loggedInUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
   const options = {
-    http: true,
+    httpOnly: true,
     secure: true,
   };
   return res
@@ -125,7 +125,7 @@ const loginUser = asyncHandler(async (req, res) => {
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
     .json(
-      new ApiResponse(200, { user: loggedInUser }, "Logged in Successfully")
+      new ApiResponse(200, { user: loggedInUser, refreshToken,accessToken }, "Logged in Successfully")
     );
 });
 
@@ -138,13 +138,13 @@ const logoutUser = asyncHandler(async (req, res) => {
     { new: true }
   );
   const options = {
-    http: true,
+    httpOnly: true,
     secure: true,
   };
   res
     .status(200)
-    .clearCookie("accessToken", accessToken)
-    .clearCookie("refreshToken", refreshToken)
+    .clearCookie("accessToken",options)
+    .clearCookie("refreshToken",options)
     .json(new ApiResponse(200, {}, "User logged out successfully!"));
 });
 
