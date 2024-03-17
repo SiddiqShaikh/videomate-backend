@@ -23,10 +23,6 @@ const videoSchema = new Schema(
       type: Number, // service provider gives info like cloudinary
       required: true,
     },
-    duration: {
-      type: Number,
-      default: 0,
-    },
     isPublished: {
       type: Boolean,
       default: true,

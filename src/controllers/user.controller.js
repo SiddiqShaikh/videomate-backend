@@ -80,7 +80,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Something went Wrong while creating new user");
   }
 
-  res
+ return res
     .status(201)
     .json(new ApiResponse(200, createdUser, "User created Successfully!"));
 });
@@ -366,6 +366,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, channel[0], "Channel Fetched Successfully!"));
 });
+
 const getWatchHistory = asyncHandler(async (req, res) => {
   const user = await User.aggregate([
     { $match: mongoose.Schema.Types.ObjectId(req.user._id) },
