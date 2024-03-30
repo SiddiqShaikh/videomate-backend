@@ -80,7 +80,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Something went Wrong while creating new user");
   }
 
- return res
+  return res
     .status(201)
     .json(new ApiResponse(200, createdUser, "User created Successfully!"));
 });
@@ -94,7 +94,7 @@ const loginUser = asyncHandler(async (req, res) => {
   // send cookie res
   const { username, email, password } = req.body;
 
-  if (!email && !username) {
+  if (!(username || email)) {
     throw new ApiError(400, "User name and email is required");
   }
 
@@ -157,6 +157,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   //check refresh token incoming from cookies/body
   const incomingRefreshToken =
     req?.cookies?.refreshToken || req.body.refreshToken;
+ 
   if (!incomingRefreshToken) {
     throw new ApiError(401, "Unauthorized request");
   }
@@ -166,18 +167,18 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
     );
-
     //find user
     const user = await User.findById(decodedToken?._id);
+   
     if (!user) {
       throw new ApiError(401, "Invalid refresh token");
     }
 
     //check incoming R-token and user-R-Token
-    if (incomingRefreshToken !== user?.refeshToken) {
+
+    if (incomingRefreshToken !== user?.refreshToken) {
       throw new ApiError(401, "Refresh Token is expired");
     }
-
     // generate token
     const { accessToken, newRefreshToken } =
       await generateAccessTokenAndRefreshToken(user._id);
@@ -188,8 +189,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     };
     return res
       .status(200)
-      .cookies("accessToken", accessToken, options)
-      .cookies("refreshToken", newRefreshToken, options)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
       .send(
         new ApiResponse(
           200,
@@ -204,11 +205,13 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
 const changeCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
+
   //find user
   const user = await User.findById(req.user._id);
 
   //check current password
-  const isPasswordCorrect = user.isPasswordCorrect(oldPassword);
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+  console.log(isPasswordCorrect);
   if (!isPasswordCorrect) {
     throw new ApiError(400, "Invalid current password");
   }
@@ -256,7 +259,7 @@ const updateProfileImage = asyncHandler(async (req, res) => {
   if (!avatar.url) {
     throw new ApiError(400, "Error while uploading avatar on cloudinary");
   }
-  
+
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
@@ -369,7 +372,11 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 
 const getWatchHistory = asyncHandler(async (req, res) => {
   const user = await User.aggregate([
-    { $match: mongoose.Schema.Types.ObjectId(req.user._id) },
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
     {
       $lookup: {
         from: "videos",
@@ -388,7 +395,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
                   $project: {
                     fullname: 1,
                     username: 1,
-                    avatar: 1,
+                    "avatar.url": 1,
                   },
                 },
               ],
@@ -428,4 +435,3 @@ export {
   getUserChannelProfile,
   getWatchHistory,
 };
-

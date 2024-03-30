@@ -115,15 +115,77 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 
 // controller to return channel list to which user has subscribed
 const getSubscribedChannels = asyncHandler(async (req, res) => {
-  const { subscriberId } = req.params;
-  if (!isValidObjectId(subscriberId)) {
-    throw new ApiError(400, "Invalid Subscriber Id!");
-  }
-
   // subscriberId --- subscriber --> documents fetch
   // join channels video and add latest video
   // unwind --> to seperate array elements of channels
   // project channel
   // return res
+  const { subscriberId } = req.params;
+  if (!isValidObjectId(subscriberId)) {
+    throw new ApiError(400, "Invalid Subscriber Id!");
+  }
+  const subscribedChannels = Subscription.aggregate([
+    {
+      $match: {
+        subscriber: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        foreignField: "_id",
+        localField: "channel",
+        as: "subscribedChannel",
+        pipeline: [
+          {
+            $lookup: {
+              from: "videos",
+              foreignField: "_id",
+              localField: "owner",
+              as: "videos",
+            },
+          },
+          {
+            $addFields: {
+              latestVideo: {
+                $last: "$videos",
+              },
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: "$subscribedChannel",
+    },
+    {
+      $project: {
+        _id: 0,
+        subscribedChannel: {
+          _id: 1,
+          username: 1,
+          fullname: 1,
+          "avatar.url": 1,
+          latestVideo: {
+            _id: 1,
+            "videoFile.url": 1,
+            "thumbnail.url": 1,
+            duration: 1,
+            owner: 1,
+            title: 1,
+            description: 1,
+            createdAt: 1,
+            views: 1,
+          },
+        },
+      },
+    },
+  ]);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, subscribedChannels, "ChannelS Fetched Sucessfuly!")
+    );
+  
 });
-export { toggleSubscription, getUserChannelSubscribers };
+export { toggleSubscription, getUserChannelSubscribers,getSubscribedChannels };
